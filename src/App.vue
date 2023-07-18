@@ -13,7 +13,7 @@ import { RouterLink, RouterView } from 'vue-router'
       </header>
       <br>
       <br>
-      <RouterLink to="/eventPortal">Event Management</RouterLink>
+      <RouterLink to="/">Event Management</RouterLink>
       </ul> 
     </nav>
     <div class="content">

@@ -1,10 +1,17 @@
 <!-- table-delete ,display,search -->
 <template>
+  <div v-if="show==false">
     <h1>Event Management Table</h1>
-    <br>
+      <br>
+      <br>
+      <button  class='submit-button' @click="register">Event Registration</button>
+      <br>
+      <br>
+      <br>
+      <br>
       <h2>SEARCH FILTER</h2>
       <div id="search bar">
-        <input type="text" class="input-field" v-model="searchQuery" placeholder="Search records.." > 
+        <input type="text" class="input-field" v-model="searchQuery" placeholder="Search events by name, place,.." > 
         <br>
         <br>
         <button  class="submit-button" @click="searchDetails">Search</button> 
@@ -12,8 +19,7 @@
       </div>
       <br>
       <br>
-      <br>
-      <div id="table" v-if="flag">
+      <div id="table"  v-if="show==false">
         <table>
           <thead>
             <tr>
@@ -26,6 +32,7 @@
             <tr v-for="(item, index) in eventdet" :key="index">
               <td>{{ item.id }}</td>
               <td>{{ item.event_id }}</td>
+              <td>{{ item.event_category_id }}</td>
               <td>{{ item.event_name }}</td>
               <td>{{ item.event_description }}</td>
               <td>{{ item.event_place }}</td>
@@ -37,6 +44,11 @@
           </tbody>
         </table>
       </div>
+      <br>
+      <br>
+      <button class="submit-button" @click="downloadCSV">Download CSV</button>  
+      
+</div>
   </template>
   
   <script>
@@ -51,21 +63,30 @@
         searchQuery: '',
         headers:null,
         results:'',
-       
+        show: false,
       };
     },
+    mounted(){
+      this.select();
+    },
     created() {
-     this.emitter.on('reload',this.select);
-     this.select();
+      this.emitter.on("reload",(evt)=>{
+        this.show=evt.eventContent;
+        console.log(this.show);
+        this.select();
+      });
     },
     methods: {
-   
+            register(){
+              this.show = true;
+              this.emitter.emit('showForm', { 'eventContent': this.show });
+            },
             select() {
             axios.get(`${this.baseUrl}selectevent`)
           .then(response => {
             this.eventdet = response.data;
             console.log(this.eventdet);
-            this.headers = Object.keys(this.eventdet[0]).slice(0, 7);
+            this.headers = Object.keys(this.eventdet[0]).slice(0, 8);
             console.log(this.headers);
             this.flag = true;
           })
@@ -74,18 +95,27 @@
             this.flag = false;
           });
       },
-      deleteEvent(id) {
-        axios
-          .delete(`${this.baseUrl}Deletionevent/${id}`)
-          .then((response) => {
-            console.log(response);
-            this.select();
-          })
-          .catch((error) => console.error(error));
-      },
+      async deleteEvent(id) {
+      if (window.confirm('Are you sure you want to delete this event?')) {
+        try {
+          const response = await axios.delete(`${this.baseUrl}Deletionevent/${id}`);
+          console.log(response);
+          this.select();
+          // Display the alert message after successful deletion
+          window.alert('Deletion successful');
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    },
       updateEvent(item) {
       console.log(this.emitter)
-       this.emitter.emit('getId', { 'eventContent': item });
+      this.show = true;
+      const getItem = {
+        id : item,
+        show: this.show
+      }
+       this.emitter.emit('getId', { 'eventContent': getItem });
         this.select()
       },
   
@@ -103,7 +133,30 @@
           })
                   .catch((error) => console.error(error));
   
-  },
+        },
+        downloadCSV() {
+      axios({
+        url: 'http://127.0.0.1:3333/download',
+        method: 'GET',
+        responseType: 'blob',
+      })
+        .then((response) => {
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', 'output.csv');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        })
+        .catch((error) => {
+          console.error('Error downloading CSV file:', error);
+        });
+    },
+
+
+
+   
     },
   };
   </script>

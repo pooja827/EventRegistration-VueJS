@@ -2,31 +2,40 @@
 <template>
     <div>
       
-      <h1>Event Form</h1>
-      <form @submit.prevent="submitForm">
+      
+      <form v-if="show" @submit.prevent="submitForm" method="post">
+        <h1>Event Form</h1>
         <div class="form-group">
-          <label for="event_id">Event ID:</label>
-          <input type="text" id="event_id" v-model="this.eventsdetails.event_id" name="event_id" class="input-field">
+          <label for="eventId">Event ID:</label>
+          <input type="text" id="eventId"  v-model="eventsdetails.eventId" @input="checkEventId" class="input-field"/>
+          <span v-if="this.eventsdetails.isDuplicateEventId">This event ID is already taken.</span>
         </div>
         <div class="form-group">
-          <label for="event_name">Event Name:</label>
-          <input type="text" id="event_name" v-model="this.eventsdetails.event_name" name="event_name" class="input-field">
+          <label for="eventCategoryId">Category ID:</label>
+          <input type="text" id="eventCategoryId" v-model="eventsdetails.eventCategoryId" name="eventCategoryId" class="input-field"  @input="validateID" required>
+          <span v-if="idError" class="error">{{ idError }}</span>
         </div>
         <div class="form-group">
-          <label for="event_description">Event Description:</label>
-          <input type="text" id="event_description" v-model="this.eventsdetails.event_description" name="event_description" class="input-field">
+          <label for="eventName">Event Name:</label>
+          <input type="text" id="eventName" v-model="eventsdetails.eventName" name="eventName" @input="validateName" class="input-field" required>
+          <span v-if="nameError" class="error">{{ nameError }}</span>
         </div>
         <div class="form-group">
-          <label for="event_place">Event Place:</label>
-          <input type="text" id="event_place" v-model="this.eventsdetails.event_place" name="event_place" class="input-field">
+          <label for="eventDescription">Event Description:</label>
+          <input type="text" id="eventDescription" v-model="this.eventsdetails.eventDescription" name="eventDescription" class="input-field" required>
         </div>
         <div class="form-group">
-          <label for="event_date">Event Date:</label>
-          <input type="string" id="event_date" v-model="this.eventsdetails.event_date" name="event_date" class="input-field">
+          <label for="eventPlace">Event Place:</label>
+          <input type="text" id="eventPlace" v-model="eventsdetails.eventPlace" name="eventPlace" @input="validatePlace" class="input-field">
+          <span v-if="placeError" class="error">{{ placeError }}</span>
         </div>
         <div class="form-group">
-          <label for="event_time">Event Time:</label>
-          <input type="string" id="event_time" v-model.number="this.eventsdetails.event_time" name="event_time" class="input-field">
+          <label for="eventDate">Event Date:</label>
+          <input type="date" id="eventDate" v-model="formattedDate" name="eventDate" class="input-field" required>
+        </div>
+        <div class="form-group">
+          <label for="eventTime">Event Time:</label>
+          <input type="time" id="eventTime" v-model="eventsdetails.eventTime" name="eventTime" class="input-field" step="1" required>
         </div>     
         <button type="submit" class="submit-button">{{ this.edit ?'Update' : 'Add' }}</button>
       </form>
@@ -35,90 +44,181 @@
   
   <script>
   import axios from 'axios';
+  import {DateTime} from 'luxon';
+  import moment from 'moment';
   export default {
     name: 'UserForm',
     data() {
       return {
         id:'',
         eventsdetails:{
-          event_id: '',
-          event_name:'',
-          event_description:'',
-          event_place:'',
-          event_date:'',
-          event_time:''
-          
+          eventId:'',
+          eventCategoryId: '',
+          eventName:'',
+          eventDescription:'',
+          eventPlace:'',
+          eventDate:'',
+          eventTime:'',
+          idError: '',
+          nameError: '',
+          placeError:'',
+          formattedDate: '',
+          isDuplicateEventId:'',
         },
         flag:'',
         edit:false,
-        baseUrl:import.meta.env.VITE_BASE_URL,    
+        baseUrl:import.meta.env.VITE_BASE_URL,
+        show: false,    
         
       };
     },
+    computed: {
+      hasErrors() {
+        return (
+          this.idError ||
+          this.nameError||
+          this.placeError 
+        );
+      }
+    },
     created(){
       this.emitter.on("getId",(evt)=>{
-        this.id=evt.eventContent;
-        console.log(evt);
+        const getData=evt.eventContent;
+        this.id = getData.id;
+        this.show = getData.show;
+        console.log(this.id);
         this.fetchEvent();
+      });
+
+      this.emitter.on("showForm",(evt)=>{
+        this.show=evt.eventContent;
+        console.log(this.show);
       });
 
     },
     methods: {
+      checkEventId() {
+       
+      // Make an API request to the server to check if the eventId already exists
+      // You can use Axios or other HTTP libraries for making the request
+      // Example:
+      axios.get(`${this.baseUrl}check/${this.eventsdetails.eventId}`)
+        .then((response) => {
+
+          this.eventsdetails.isDuplicateEventId = response.data.isDuplicate;
+          console.log(this.eventsdetails.isDuplicateEventId)
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    },
+      validateID() {
+  if (!/^[a-zA-Z0-9]+$/.test(this.eventsdetails.eventCategoryId)) {
+    this.idError = 'ID should contain both alphabets and numbers.';
+  } else {
+    this.idError = '';
+  }
+},
+validateName() {
+  if (!/^[a-zA-Z]+$/.test(this.eventsdetails.eventName)) {
+    this.nameError = 'Name can only contain alphabets.';
+  } else {
+    this.nameError = '';
+  }
+},
+validatePlace() {
+  if (!/^[a-zA-Z]+$/.test(this.eventsdetails.eventPlace)) {
+    this.placeError = 'Place should contain only alphabets.';
+  } else {
+    this.placeError = '';
+  }
+},
+
       submitForm() {
+        const formattedDate = DateTime.fromISO(this.eventsdetails.eventDate).toFormat('yyyy-MM-dd');
+        this.eventsdetails.eventDate = moment(this.formattedDate).format('YYYY-MM-DD');
+
         if(this.edit){
            this.updateEvent(this.id);
             this.resetForm();
-            this.emitter.emit('reload',{'eventContent':'Reload'});
+            this.show = false;
+            this.emitter.emit('reload',{'eventContent': this.show});
           }
           else{
-        console.log(this.eventsdetails);
-         axios.post('http://127.0.0.1:3333/insertevent', this.eventsdetails)
+         axios.post(`${this.baseUrl}insertevent`, this.eventsdetails)
           .then(response => {
-            console.log('Insertion successful');
-            this.emitter.emit('reload',{'eventContent':'Reload'});
-  
+            console.log(response.data);
+            this.show = false;
+            this.emitter.emit('reload',{'eventContent':this.show});
+            alert(response.data) 
           })
+          
           .catch(error => {
-            console.error('Error inserting data:', error);
+            console.error('Error while inserting data:', error);
           });
-          this.resetForm();
-          this.emitter.emit('reload',{'eventContent':'Reload'});
+          this.resetForm();   
+          
       }
-    },
-      updateEvent(item) {
-        axios
-          .put(`${this.baseUrl}updationevent/${this.id}`, this.eventsdetails)
-          .then((response) => {
-            console.log(response);
             this.resetForm();
-            
-             // Reset the form after successful update
-             
-             this.emitter.emit('reload', { 'eventContent': 'Reload' });
-            this.updateSuccess = true; // Set updateSuccess to true
-           
-          })
-          .catch((error) => console.error(error));
-      },
+            this.show = false;
+    },
+    updateEvent(item) {
+  if (window.confirm('Are you sure you want to update this event?')) {
+    axios
+      .put(`${this.baseUrl}updationevent/${this.id}`, this.eventsdetails)
+      .then((response) => {
+        console.log(response);
+        this.resetForm();
+        
+        // Reset the form after successful update
+        this.show = false;
+        this.emitter.emit('reload', { 'eventContent': this.show });
+        this.updateSuccess = true; // Set updateSuccess to true
+        alert("Updation Successfull");
+      })
+      .catch((error) => console.error(error));
+  } else {
+    alert("Updation Cancelled");
+  }
+},
+
       resetForm() {
-  
-            this.eventsdetails.event_id = '';
-            this.eventsdetails.event_name = '';
-            this.eventsdetails.event_description = '';
-            this.eventsdetails.event_place = '';
-            this.eventsdetails.event_date='';
-            this.eventsdetails.event_time='';
+            this.eventsdetails.eventId = '';
+            this.eventsdetails.eventCategoryId = '';
+            this.eventsdetails.eventName = '';
+            this.eventsdetails.eventDescription = '';
+            this.eventsdetails.eventPlace = '';
+            this.eventsdetails.eventDate='';
+            this.eventsdetails.eventTime='';
+            this.idError = '';
+            this.nameError = ''; 
+            this.placeError=''; 
             this.edit=false;
       },
       fetchEvent() {
-        axios
-          .get(`${this.baseUrl}selectedevent/${this.id}`)
-          .then((response) => {
-            this.edit=true;
-            this.eventsdetails = response.data;
-          })
-          .catch((error) => console.error(error));
-      },
+  axios
+    .get(`${this.baseUrl}selectedevent/${this.id}`)
+    .then((response) => {
+      this.edit = true;
+      const details = response.data;
+
+      this.eventsdetails = {
+        eventId: details.event_id,
+        eventCategoryId: details.event_category_id,
+        eventName: details.event_name,
+        eventDescription: details.event_description,
+        eventPlace: details.event_place,
+        eventDate: details.event_date,
+        eventTime: details.event_time,
+      };
+      this.formattedDate = moment(this.eventsdetails.eventDate).format('YYYY-MM-DD');
+
+      console.log(response.data);
+    })
+    .catch((error) => console.error(error));
+},
+
+
     },
   };
   
